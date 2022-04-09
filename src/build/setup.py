@@ -1,3 +1,13 @@
+"""
+Project distribution setup file.
+
+Expected to run as setup.py, this module
+tries to load dist information from a manifest
+file, then execute the loaded values in the `setup`
+call. (see `install` function defined in this
+module.)
+"""
+
 import contextlib
 import dataclasses
 import pathlib
@@ -50,7 +60,9 @@ BUILD_FILES: tuple[Path, ...] = (
 # determine where the project requirements might
 # be annotated. We should alway expect this file
 # to be at the root of the project.
-REQUIREMENTS_FILE = PROJECT_ROOT.parents[1] / "requirements.txt"
+REQUIREMENTS_FILES: tuple[Path, ...] = (
+    PROJECT_ROOT.parents[1] / "requirements.txt",
+)
 
 
 @dataclasses.dataclass
@@ -118,6 +130,11 @@ class ConfigBuild:
     license:       OptionalStr       = None
     license_files: OptionalList[str] = None
 
+    def copy(self):
+        """Return a shallow copy of this `ConfigBuild`"""
+        cls, temp = type(self), dataclasses.asdict(self)
+        return cls(**temp)
+
 
 # Objects which contain distribution metadata
 # will be marked with this `ConfigDict` annotation.
@@ -126,6 +143,18 @@ ConfigDict = dict[str, Any]
 SETUP_MANIFEST: ConfigDict  = {}
 SETUP_BUILD:    ConfigBuild
 
+# Manifest keys are expected sections of
+# the build file. These values should
+# correspond with the notation given to
+# our `ConfigBuild` class.
+SETUP_MANIFEST_KEYS = (
+    "project",
+    "personnel",
+    "description",
+    "build",
+    "build-meta",
+    "licensing"
+)
 
 @runtime_checkable
 class DataLoader(Protocol):
@@ -143,7 +172,9 @@ def data_loader(func: Callable) -> DataLoader:
 
 @data_loader
 def yaml_loader(stream: IO, data: dict[str, Any]):
-    data.update(yaml.load(stream, yaml.FullLoader))
+    loaded = yaml.load(stream, yaml.FullLoader)
+    if loaded:
+        data.update(loaded)
     return data
 
 
@@ -186,35 +217,86 @@ def safe_enter_context(loc: str | PathLike, stack: ExitStack, *,
         attempt_open_file(loc, mode))
 
 
-def read_build_file():
+def safe_open_files(stack: ExitStack, locations: Iterable[str | PathLike]):
+    """
+    Given an iterable of pathlike files,
+    open each file in the `ExitStack`.
+    """
+    files = []
+    for loc in locations:
+        files.append(safe_enter_context(loc, stack))
+    return files
+
+
+def load_build_manifest() -> dict[str, Any]:
+    """
+    Load data for for the build manifest
+    from the target files.
+    """
     with contextlib.ExitStack() as es:
-        files = [
-            safe_enter_context(loc, es) for loc in BUILD_FILES]
-        data = read_file_data({}, files, yaml_loader)
+        files = safe_open_files(es, BUILD_FILES)
+        data  = read_file_data({}, files, yaml_loader)
     return data
 
 
-def read_requirements_file():
+def load_requirements() -> set[str]:
+    """
+    Load the project requirements data from
+    the target files.
+    """
     with contextlib.ExitStack() as es:
-        files = [es.enter_context(open(REQUIREMENTS_FILE))]
+        files = safe_open_files(es, REQUIREMENTS_FILES)
         data = read_file_data([], files, read_loader)
-    return "\n".join(set(data))
+    return set(data)
 
 
-def install():
+def load_build_from_manifest():
     global SETUP_MANIFEST
     global SETUP_BUILD
 
-    manifest = read_build_file()
-    SETUP_MANIFEST |= manifest["project"]
+    SETUP_MANIFEST = load_build_manifest()
 
-    SETUP_BUILD |= manifest["project_build"]
-    SETUP_BUILD["install_requires"] = read_requirements_file()
-    SETUP_BUILD["packages"] = find_packages()
+    build_params = {}
+    for section in SETUP_MANIFEST_KEYS:
+        if not SETUP_MANIFEST[section]:
+            continue
+        build_params |= SETUP_MANIFEST[section]
 
-    SETUP_MANIFEST |= SETUP_BUILD
+    SETUP_BUILD = ConfigBuild(**build_params)
 
-    setup(**SETUP_MANIFEST)
+
+def parse_build():
+    global SETUP_BUILD
+
+    # Use shallow copy to refrain from
+    # corrupting previously loaded data.
+    setup_build = SETUP_BUILD.copy()
+
+    # Merge all requirements
+    install_requires = load_requirements()
+    if setup_build.install_requires:
+        for required in setup_build.install_requires:
+            install_requires.add(required)
+    setup_build.install_requires = list(install_requires)
+
+    # Ensure packages are obtained and utilized
+    packages = set(find_packages())
+    if setup_build.packages:
+        for package in setup_build.packages:
+            packages.add(package)
+    setup_build.packages = list(packages)
+
+    # Remove any keys unused in manifest
+    build  = dataclasses.asdict(SETUP_BUILD)
+    unused = [k for k in build if not build[k]]
+    for key in unused:
+        build.pop(key)
+    return build
+
+
+def install():
+    load_build_from_manifest()
+    setup(**parse_build())
 
 
 if __name__ == "__main__":
