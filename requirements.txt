@@ -1,0 +1,8 @@
+
+# Project specific modules
+click
+
+# Development specific modules
+mypy
+pytest
+pyyaml

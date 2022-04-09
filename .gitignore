@@ -1,0 +1,15 @@
+
+# Distribution specific files and dirs.
+build/
+dist/
+*.egg-info
+
+
+# Python specific files and dirs.
+__pycache__/
+
+
+# IDE and environment related files and dirs
+.idle
+.venv
+.vscode
