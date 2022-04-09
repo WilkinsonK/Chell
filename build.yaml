@@ -1,0 +1,16 @@
+project:
+  name: chell
+  entry_points: |
+    [console_scripts]
+    chell=chell.cli.main:main
+personnel:
+  author: Keenan W. Wilkinson
+  author_email: keenanwilkinson@outlook.com
+description:
+  description: Custom multi-purpose developer tool
+build:
+  version: 0.0.0
+  packages:
+    - chell
+  py_modules:
+    - chell.cli.main
