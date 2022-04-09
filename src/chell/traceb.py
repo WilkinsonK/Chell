@@ -34,11 +34,12 @@ def indent_lines(lines: list[str], *, predicate = None, tab_count: int = None):
 
 class TracebackRender:
 
-    _rendered: list[str]     = None
-    _last_tb:  TracebackType = None
+    _rendered: list[str]
+    _last_tb:  TracebackType | None
 
     def __init__(self) -> None:
         self._rendered = []
+        self._last_tb  = None
 
     def __str__(self):
         return self.message
