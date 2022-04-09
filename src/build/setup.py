@@ -60,6 +60,11 @@ class ConfigBuild:
     used to identify keyword values for
     `setuptools.setup` function.
 
+    NOTE: not all params are implemented
+    in this class. Either due to deprecation
+    or does not fit the potential scope
+    of this project's needs.
+
     visit the below for referrence:
     https://setuptools.pypa.io/en/latest/references/keywords.html
     """
@@ -70,6 +75,7 @@ class ConfigBuild:
     entry_points:     OptionalMap[str, str] = None
     install_requires: OptionalList[str]     = None
     url:              OptionalStr           = None
+    project_urls:     OptionalList[str]     = None
     python_requires:  OptionalStr           = None
 
     # Author and other Personnel.
