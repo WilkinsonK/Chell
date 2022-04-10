@@ -33,44 +33,55 @@ def indent_lines(lines: list[str], *, predicate = None, tab_count: int = None):
 
 
 class TracebackRender:
+    __slots__ = ("__rendered", "__last_tb", "__error")
 
-    _rendered: list[str]
-    _last_tb:  TracebackType | None
+    __rendered: list[str]
+    __last_tb:  TracebackType | None
+    __error:    Exception
 
     def __init__(self) -> None:
-        self._rendered = []
-        self._last_tb  = None
+        self.__rendered = []
+        self.__last_tb  = None
 
     def __str__(self):
         return self.message
 
     @property
     def last(self):
-        return self._last_tb
+        return self.__last_tb
 
     @last.setter
     def last(self, tb: TracebackType):
-        self._last_tb = tb
+        self.__last_tb = tb
 
     @property
     def message(self):
         message = [
-            NEWLINE.join(self._rendered[::-1])
+            NEWLINE.join(self.__rendered[::-1])
         ]
 
-        tb_locals = self._last_tb.tb_frame.f_locals
+        tb_locals = self.__last_tb.tb_frame.f_locals
         message.extend(["locals:"] + indent_lines([
             f"{name}: {value}" for name,value in tb_locals.items()
         ]))
         return NEWLINE.join(message)
 
+    @property
+    def error(self):
+        return self.__error
 
-def render_tb(tb: TracebackType):
+    @error.setter
+    def error(self, error: Exception):
+        self.__error = error
+
+
+def render_tb(exc: Exception, tb: TracebackType):
     """
     Analyze a stack trace, returning a rendered string
     to output to the shell.
     """
     render = TracebackRender()
+    render.error = exc
 
     def inner(tb: TracebackType):
         if tb.tb_next:
@@ -101,7 +112,7 @@ def render_tb_frame(tb: TracebackType, *, render: TracebackRender):
     frame_render.append(
         render_tb_source(frame, co_code))
 
-    render._rendered.append("\n".join(frame_render))
+    render.__rendered.append("\n".join(frame_render))
 
 
 def render_tb_source(frame: FrameType, co_code: CodeType):
@@ -118,7 +129,7 @@ def render_tb_source(frame: FrameType, co_code: CodeType):
         lineno = (linestart + ind - 1)
         if lineno == frame.f_lineno:
             line = ERRLINE % line
-        lineno = LINENO % str(lineno).rjust(3, "0")
-        source[ind] = f"|{lineno} {line}"
+        linestr = LINENO % str(lineno).rjust(3, "0")
+        source[ind] = f"|{linestr} {line}"
 
     return NEWLINE.join(source)

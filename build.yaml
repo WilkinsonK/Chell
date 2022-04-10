@@ -2,7 +2,7 @@ project:
   name: chell
   entry_points: |
     [console_scripts]
-    chell=chell.cli.main:chell_cli
+    chell=chell.main:main
 personnel:
   author: Keenan W. Wilkinson
   author_email: keenanwilkinson@outlook.com
@@ -14,4 +14,4 @@ build:
     - src
     - src/chell
   py_modules:
-    - src.chell.cli.main
+    - src.chell.main
