@@ -1,4 +1,4 @@
-PYTHON_EXE=python3
+PYTHON_EXE=python
 PYTHON_ARGS?=
 
 SETUP_REQUIRES=src/build/setup.py build.yaml
